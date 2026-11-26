@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-content">
+        <span class="hero-badge">Строительный магазин · корпоративный контур</span>
+        <h1>Всё для стройки —<br>в одном портале</h1>
+        <p>Команда, структура компании и проверка контрагентов перед сделкой.
+            Рабочее место сотрудника «СтройБазы».</p>
+        <div class="hero-actions">
+            <a class="uk-button uk-button-primary uk-button-large" href="{% url 'org_structure' %}">
+                <span uk-icon="icon: database; ratio: .9" class="uk-margin-small-right"></span>Орг структура
+            </a>
+            <a class="uk-button uk-button-hero uk-button-large" href="{% url 'counterparty_check' %}">
+                <span uk-icon="icon: search; ratio: .9" class="uk-margin-small-right"></span>Проверить контрагента
+            </a>
+        </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+        <div class="hero-art-glow"></div>
+        <div class="hero-art-card hero-art-card-main">
+            <span class="hero-art-emoji">🏗️</span>
+            <div>
+                <strong>Строим надёжно</strong>
+                <small>поставки, склад, продажи</small>
+            </div>
+        </div>
+        <div class="hero-art-card hero-art-card-second">
+            <span class="hero-art-emoji">🧱</span>
+            <div>
+                <strong>6 департаментов</strong>
+                <small>единая орг структура</small>
+            </div>
+        </div>
+        <div class="hero-art-badge">17 сотрудников</div>
+    </div>
+</section>
+
+<div class="uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin-medium-top" uk-grid>
+    <div>
+        <a class="stat-card" href="{% if user.is_admin %}{% url 'users_list' %}{% else %}{% url 'org_structure' %}{% endif %}">
+            <span class="stat-icon" uk-icon="icon: users; ratio: 1.15"></span>
+            <span class="stat-value">{{ stats.users }}</span>
+            <span class="stat-label">пользователей</span>
+        </a>
+    </div>
+    <div>
+        <a class="stat-card" href="{% url 'org_structure' %}">
+            <span class="stat-icon" uk-icon="icon: database; ratio: 1.15"></span>
+            <span class="stat-value">{{ stats.departments }}</span>
+            <span class="stat-label">департаментов</span>
+        </a>
+    </div>
+    <div>
+        <a class="stat-card" href="{% url 'counterparty_check' %}">
+            <span class="stat-icon" uk-icon="icon: folder; ratio: 1.15"></span>
+            <span class="stat-value">{{ stats.counterparties }}</span>
+            <span class="stat-label">контрагентов</span>
+        </a>
+    </div>
+    <div>
+        <a class="stat-card" href="{% url 'counterparty_check' %}">
+            <span class="stat-icon" uk-icon="icon: check; ratio: 1.15"></span>
+            <span class="stat-value">{{ stats.checks }}</span>
+            <span class="stat-label">проверок в истории</span>
+        </a>
+    </div>
+</div>
+
+<div class="uk-grid-large uk-margin-large-top" uk-grid>
+    <div class="uk-width-2-3@l">
+        <div class="panel-card">
+            <div class="panel-card-head">
+                <div>
+                    <span class="page-kicker">Активность</span>
+                    <h2>Последние проверки контрагентов</h2>
+                </div>
+                <a href="{% url 'counterparty_check' %}" class="uk-button uk-button-text">Все проверки</a>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Компания</th>
+                        <th>ИНН</th>
+                        <th>Сотрудник</th>
+                        <th>Дата</th>
+                        <th>Статус</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for check in recent_checks %}
+                        <tr>
+                            <td><strong>{{ check.counterparty.name }}</strong></td>
+                            <td class="mono">{{ check.counterparty.inn }}</td>
+                            <td>{{ check.user.name }}</td>
+                            <td class="muted">{{ check.date_time|date:"d.m.Y H:i" }}</td>
+                            <td>
+                                <span class="status-badge status-{{ check.result_data.status_class }}">
+                                    {{ check.result_data.status }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5"><div class="empty-inline">Проверок пока нет.</div></td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="uk-width-1-3@l">
+        <div class="panel-card">
+            <div class="panel-card-head">
+                <div>
+                    <span class="page-kicker">Быстрый доступ</span>
+                    <h2>Разделы</h2>
+                </div>
+            </div>
+            <div class="quick-links">
+                <a href="{% url 'org_structure' %}" class="quick-link">
+                    <span class="quick-link-icon">🏢</span>
+                    <span><strong>Орг структура</strong><small>Департаменты и сотрудники</small></span>
+                </a>
+                <a href="{% url 'counterparty_check' %}" class="quick-link">
+                    <span class="quick-link-icon">🔎</span>
+                    <span><strong>Проверка контрагента</strong><small>Поиск по ИНН и история</small></span>
+                </a>
+                {% if user.is_admin %}
+                    <a href="{% url 'users_list' %}" class="quick-link">
+                        <span class="quick-link-icon">👥</span>
+                        <span><strong>Пользователи</strong><small>Поиск, фильтры, редактирование</small></span>
+                    </a>
+                {% endif %}
+                <a href="{% url 'profile' %}" class="quick-link">
+                    <span class="quick-link-icon">🪪</span>
+                    <span><strong>Личный кабинет</strong><small>Ваши данные и пароль</small></span>
+                </a>
+            </div>
+        </div>
+
+        {% if my_checks %}
+            <div class="panel-card uk-margin-top">
+                <div class="panel-card-head">
+                    <h2>Мои проверки</h2>
+                </div>
+                <ul class="simple-list">
+                    {% for check in my_checks %}
+                        <li>
+                            <div>
+                                <strong>{{ check.counterparty.name }}</strong>
+                                <small class="muted">{{ check.date_time|date:"d.m.Y H:i" }}</small>
+                            </div>
+                            <span class="status-badge status-{{ check.result_data.status_class }}">
+                                {{ check.result_data.status }}
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel-card uk-margin-large-top">
+    <div class="panel-card-head">
+        <div>
+            <span class="page-kicker">Структура</span>
+            <h2>Верхний уровень компании</h2>
+        </div>
+        <a href="{% url 'org_structure' %}" class="uk-button uk-button-default uk-button-small">Открыть дерево</a>
+    </div>
+    <div class="dept-chips">
+        {% for department in top_departments %}
+            <a class="dept-chip" href="{% url 'org_structure' %}">
+                <span class="dept-chip-dot"></span>
+                <span><strong>{{ department.name }}</strong><small>{{ department.children.count }} вложенных отдела</small></span>
+            </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

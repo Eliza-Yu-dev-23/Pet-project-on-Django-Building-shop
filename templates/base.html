@@ -1,0 +1,121 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Портал{% endblock %} · СтройБаза</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.17.11/dist/css/uikit.min.css">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<header class="app-header">
+    <div class="uk-container uk-container-large">
+        <nav class="uk-navbar" uk-navbar>
+            <div class="uk-navbar-left">
+                <a href="{% url 'home' %}" class="brand">
+                    <span class="brand-mark">СБ</span>
+                    <span class="brand-text">
+                        <strong>СтройБаза</strong>
+                        <small>корпоративный портал</small>
+                    </span>
+                </a>
+            </div>
+            <div class="uk-navbar-right">
+                <ul class="uk-navbar-nav app-nav uk-visible@m">
+                    <li class="{% if request.path == '/' %}uk-active{% endif %}">
+                        <a href="{% url 'home' %}">Главная</a>
+                    </li>
+                    <li class="{% if '/org/' in request.path %}uk-active{% endif %}">
+                        <a href="{% url 'org_structure' %}">Орг структура</a>
+                    </li>
+                    <li class="{% if '/counterparty/' in request.path %}uk-active{% endif %}">
+                        <a href="{% url 'counterparty_check' %}">Проверка контрагента</a>
+                    </li>
+                    {% if user.is_admin %}
+                        <li class="{% if '/users/' in request.path %}uk-active{% endif %}">
+                            <a href="{% url 'users_list' %}">Пользователи</a>
+                        </li>
+                    {% endif %}
+                    <li class="{% if '/profile/' in request.path %}uk-active{% endif %}">
+                        <a href="{% url 'profile' %}">Личный кабинет</a>
+                    </li>
+                </ul>
+                <div class="user-chip uk-visible@m">
+                    <span class="avatar">{{ user.initials }}</span>
+                    <span class="user-chip-text">
+                        <strong>{{ user.name }}</strong>
+                        <small>{{ user.role_name }}</small>
+                    </span>
+                </div>
+                <form method="post" action="{% url 'logout' %}" class="logout-form uk-visible@m">
+                    {% csrf_token %}
+                    <button class="uk-button uk-button-ghost uk-button-small" type="submit">Выйти</button>
+                </form>
+                <button class="uk-navbar-toggle uk-hidden@m nav-toggle" type="button"
+                        uk-navbar-toggle-icon uk-toggle="target: #mobile-nav" aria-label="Меню"></button>
+            </div>
+        </nav>
+    </div>
+</header>
+
+<div id="mobile-nav" uk-offcanvas>
+    <div class="uk-offcanvas-bar mobile-nav">
+        <button class="uk-offcanvas-close" type="button" uk-close></button>
+        <div class="mobile-user">
+            <span class="avatar avatar-lg">{{ user.initials }}</span>
+            <div>
+                <strong>{{ user.name }}</strong>
+                <div class="muted">{{ user.role_name }}</div>
+            </div>
+        </div>
+        <ul class="uk-nav uk-nav-default">
+            <li><a href="{% url 'home' %}">Главная</a></li>
+            <li><a href="{% url 'org_structure' %}">Орг структура</a></li>
+            <li><a href="{% url 'counterparty_check' %}">Проверка контрагента</a></li>
+            {% if user.is_admin %}<li><a href="{% url 'users_list' %}">Пользователи</a></li>{% endif %}
+            <li><a href="{% url 'profile' %}">Личный кабинет</a></li>
+        </ul>
+        <form method="post" action="{% url 'logout' %}" class="uk-margin-top">
+            {% csrf_token %}
+            <button class="uk-button uk-button-default uk-width-1-1" type="submit">Выйти</button>
+        </form>
+    </div>
+</div>
+
+<main class="app-main">
+    <div class="uk-container uk-container-large">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="uk-alert {% if message.tags == 'error' %}uk-alert-danger{% elif message.tags == 'success' %}uk-alert-success{% elif message.tags == 'warning' %}uk-alert-warning{% else %}uk-alert-primary{% endif %}" uk-alert>
+                        <a class="uk-alert-close" uk-close></a>
+                        <p>{{ message }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<footer class="app-footer">
+    <div class="uk-container uk-container-large footer-inner">
+        <div>© 2026 «СтройБаза» — строительный магазин. Корпоративный портал.</div>
+        <div class="footer-links">
+            <a href="{% url 'org_structure' %}">Орг структура</a>
+            <a href="{% url 'counterparty_check' %}">Проверка контрагента</a>
+            <a href="{% url 'profile' %}">Личный кабинет</a>
+        </div>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/uikit@3.17.11/dist/js/uikit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/uikit@3.17.11/dist/js/uikit-icons.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

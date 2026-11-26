@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "create" %}Новый пользователь{% else %}Редактирование пользователя{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <span class="page-kicker">Администрирование</span>
+        <h1>{% if mode == "create" %}Новый пользователь{% else %}Редактирование пользователя{% endif %}</h1>
+        <p>{% if mode == "create" %}Создайте учётную запись и назначьте роль с департаментом.{% else %}Измените данные, роль, департамент или пароль сотрудника.{% endif %}</p>
+    </div>
+    <div class="page-head-actions">
+        <a class="uk-button uk-button-default" href="{% url 'users_list' %}">Назад к списку</a>
+    </div>
+</div>
+
+<div class="uk-grid-large" uk-grid>
+    <div class="uk-width-2-3@l">
+        <div class="panel-card">
+            {% if form.non_field_errors %}
+                <div class="uk-alert uk-alert-danger">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="uk-grid-small" uk-grid>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ form.login.id_for_label }}">Логин <span class="req">*</span></label>
+                        {{ form.login }}
+                        {% for error in form.login.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ form.name.id_for_label }}">Имя <span class="req">*</span></label>
+                        {{ form.name }}
+                        {% for error in form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ form.role.id_for_label }}">Роль <span class="req">*</span></label>
+                        {{ form.role }}
+                        {% for error in form.role.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ form.department.id_for_label }}">Департамент</label>
+                        {{ form.department }}
+                        {% for error in form.department.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-1">
+                        <label class="uk-form-label" for="{{ form.password.id_for_label }}">
+                            Пароль {% if mode == "create" %}<span class="req">*</span>{% endif %}
+                        </label>
+                        {{ form.password }}
+                        <div class="uk-form-help">{{ form.password.help_text }}</div>
+                        {% for error in form.password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-1">
+                        <label class="uk-checkbox-label">
+                            {{ form.active }}
+                            <span>Учётная запись активна (разрешить вход)</span>
+                        </label>
+                        {% for error in form.active.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="uk-button uk-button-primary uk-button-large" type="submit">
+                        {% if mode == "create" %}Создать пользователя{% else %}Сохранить изменения{% endif %}
+                    </button>
+                    <a class="uk-button uk-button-default uk-button-large" href="{% url 'users_list' %}">Отмена</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="uk-width-1-3@l">
+        <div class="panel-card info-card">
+            <span class="page-kicker">Безопасность</span>
+            <h2>Хранение пароля</h2>
+            <p class="muted">Пароль не хранится в открытом виде. При сохранении выполняется PBKDF2-хеширование с двумя солями.</p>
+            <ul class="info-list">
+                <li><span>Статическая соль</span><strong>колонка hash в БД</strong></li>
+                <li><span>Динамическая соль</span><strong>генерируется на пароль</strong></li>
+                <li><span>Алгоритм</span><strong>PBKDF2-SHA256</strong></li>
+                <li><span>Итераций</span><strong>120 000</strong></li>
+            </ul>
+            {% if user_obj %}
+                <div class="salt-preview">
+                    <span>Статическая соль пользователя</span>
+                    <code>{{ user_obj.hash|slice:":16" }}…</code>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Доступ запрещён{% endblock %}
+{% block content %}
+<div class="error-page">
+    <div class="error-code">403</div>
+    <h1>Доступ запрещён</h1>
+    <p>Раздел доступен только администраторам портала.</p>
+    <a class="uk-button uk-button-primary" href="{% url 'home' %}">На главную</a>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Вход · СтройБаза</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.17.11/dist/css/uikit.min.css">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="auth-body">
+<div class="auth-page">
+    <section class="auth-brand">
+        <div class="auth-brand-top">
+            <div class="brand brand-light">
+                <span class="brand-mark">СБ</span>
+                <span class="brand-text">
+                    <strong>СтройБаза</strong>
+                    <small>корпоративный портал</small>
+                </span>
+            </div>
+        </div>
+
+        <div class="auth-brand-middle">
+            <span class="hero-badge">Строительный магазин</span>
+            <h1>Корпоративный<br>контур «СтройБаза»</h1>
+            <p>Сотрудники, орг структура и проверка контрагентов — в одном рабочем месте.</p>
+            <ul class="auth-features">
+                <li><span uk-icon="icon: users; ratio: 1.1"></span> Управление командой и ролями</li>
+                <li><span uk-icon="icon: database; ratio: 1.1"></span> Живая орг структура компании</li>
+                <li><span uk-icon="icon: search; ratio: 1.1"></span> Проверка контрагентов по ИНН</li>
+            </ul>
+        </div>
+
+        <div class="auth-brand-bottom">
+            <div class="auth-stat"><strong>6</strong><span>департаментов</span></div>
+            <div class="auth-stat"><strong>17</strong><span>сотрудников</span></div>
+            <div class="auth-stat"><strong>24/7</strong><span>доступ к порталу</span></div>
+        </div>
+    </section>
+
+    <section class="auth-card">
+        <div class="auth-card-inner">
+            <div class="auth-card-head">
+                <span class="page-kicker">Вход в систему</span>
+                <h2>С возвращением</h2>
+                <p class="muted">Используйте корпоративные логин и пароль.</p>
+            </div>
+
+            {% if form.non_field_errors %}
+                <div class="uk-alert uk-alert-danger">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" class="auth-form" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+                <div class="uk-margin">
+                    <label class="uk-form-label" for="{{ form.login.id_for_label }}">{{ form.login.label }}</label>
+                    {{ form.login }}
+                    {% for error in form.login.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="uk-margin">
+                    <label class="uk-form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {% for error in form.password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <button class="uk-button uk-button-primary uk-button-large uk-width-1-1" type="submit">Войти в портал</button>
+            </form>
+
+            <div class="demo-creds">
+                <div class="demo-creds-title">Демо-доступ</div>
+                <div class="demo-creds-row"><span>Администратор</span><code>admin / Admin#2026</code></div>
+                <div class="demo-creds-row"><span>Сотрудник</span><code>employee / Employee#2026</code></div>
+            </div>
+
+            <p class="auth-footnote">
+                Пароли хранятся в виде PBKDF2-хеша с динамической и статической солью.
+            </p>
+        </div>
+    </section>
+</div>
+</body>
+</html>

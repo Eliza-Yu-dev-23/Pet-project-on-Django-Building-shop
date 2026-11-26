@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Проверка контрагента{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <span class="page-kicker">Безопасность сделок</span>
+        <h1>Проверка контрагента</h1>
+        <p>Введите ИНН компании. Если проверка выполнялась менее месяца назад, будет показан кэшированный результат.</p>
+    </div>
+</div>
+
+<div class="panel-card check-card">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="check-form-row">
+            <div class="check-input">
+                <label class="uk-form-label" for="{{ form.inn.id_for_label }}">{{ form.inn.label }}</label>
+                {{ form.inn }}
+                {% for error in form.inn.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                <div class="uk-form-help">10 цифр для юридического лица, 12 — для ИП. Демо-ИНН: 7707083893.</div>
+            </div>
+            <button class="uk-button uk-button-primary uk-button-large check-button" type="submit">
+                <span uk-icon="icon: search; ratio: .9" class="uk-margin-small-right"></span>Проверить
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if result %}
+    <div class="panel-card result-card uk-margin-top">
+        <div class="result-head">
+            <div>
+                <span class="page-kicker">Результат проверки</span>
+                <h2>{{ counterparty.name }}</h2>
+                <div class="muted">
+                    ИНН <span class="mono">{{ counterparty.inn }}</span> ·
+                    проверено {{ checked_at|date:"d.m.Y H:i" }} ·
+                    {{ checked_by.name }}
+                </div>
+            </div>
+            <div class="result-status">
+                <span class="status-badge status-lg status-{{ result.status_class }}">{{ result.status }}</span>
+                <small>Риск: {{ result.risk_score }}/100 ({{ result.risk_label }})</small>
+            </div>
+        </div>
+
+        {% if cached %}
+            <div class="uk-alert uk-alert-warning uk-margin-top">
+                <strong>Использован кэш.</strong>
+                Проверка по интеграции не выполнялась: предыдущая проверка была менее 30 дней назад.
+                Следующая доступна после {{ cache_until|date:"d.m.Y H:i" }}.
+            </div>
+        {% else %}
+            <div class="uk-alert uk-alert-success uk-margin-top">
+                <strong>Выполнена новая проверка.</strong>
+                Запись добавлена в историю: {{ checked_by.name }} проверил компанию {{ checked_at|date:"d.m.Y H:i" }}.
+                Результат закэширован до {{ cache_until|date:"d.m.Y H:i" }}.
+            </div>
+        {% endif %}
+
+        <div class="risk-meter" title="Уровень риска">
+            <div class="risk-meter-fill risk-{{ result.status_class }}" style="width: {{ result.risk_score }}%"></div>
+        </div>
+
+        <div class="uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin-medium-top" uk-grid>
+            <div><div class="mini-stat"><span class="mini-stat-label">ОГРН</span><span class="mini-stat-value mono">{{ result.ogrn }}</span></div></div>
+            <div><div class="mini-stat"><span class="mini-stat-label">Дата регистрации</span><span class="mini-stat-value">{{ result.registration_date_display|default:result.registration_date }}</span></div></div>
+            <div><div class="mini-stat"><span class="mini-stat-label">Сотрудников</span><span class="mini-stat-value">{{ result.employees }}</span></div></div>
+            <div><div class="mini-stat"><span class="mini-stat-label">Арбитражных дел</span><span class="mini-stat-value">{{ result.arbitration_cases }}</span></div></div>
+        </div>
+
+        <div class="uk-grid-large uk-margin-top" uk-grid>
+            <div class="uk-width-1-2@m">
+                <h3 class="panel-section-title">Основные сведения</h3>
+                <dl class="uk-description-list uk-description-list-divider">
+                    <dt>Руководитель</dt>
+                    <dd>{{ result.director }}</dd>
+                    <dt>Юридический адрес</dt>
+                    <dd>{{ result.legal_address }}</dd>
+                    <dt>Основной ОКВЭД</dt>
+                    <dd>{{ result.okved }}</dd>
+                </dl>
+            </div>
+            <div class="uk-width-1-2@m">
+                <h3 class="panel-section-title">Факторы риска</h3>
+                <ul class="risk-list">
+                    <li class="{% if result.tax_debts %}risk-flag{% else %}risk-ok{% endif %}">
+                        <span uk-icon="icon: {% if result.tax_debts %}warning{% else %}check{% endif %}; ratio: .8"></span>
+                        Налоговая задолженность: {% if result.tax_debts %}обнаружена{% else %}не обнаружена{% endif %}
+                    </li>
+                    <li class="{% if result.sanctions %}risk-flag{% else %}risk-ok{% endif %}">
+                        <span uk-icon="icon: {% if result.sanctions %}warning{% else %}check{% endif %}; ratio: .8"></span>
+                        Санкции: {% if result.sanctions %}есть{% else %}нет{% endif %}
+                    </li>
+                    <li class="{% if result.bankruptcy %}risk-flag{% else %}risk-ok{% endif %}">
+                        <span uk-icon="icon: {% if result.bankruptcy %}warning{% else %}check{% endif %}; ratio: .8"></span>
+                        Банкротство: {% if result.bankruptcy %}в процессе{% else %}не выявлено{% endif %}
+                    </li>
+                    <li class="risk-info">
+                        <span uk-icon="icon: info; ratio: .8"></span>
+                        {{ result.comment }}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<div class="panel-card uk-margin-top">
+    <div class="panel-card-head">
+        <div>
+            <span class="page-kicker">История</span>
+            <h2>{{ history_title }}</h2>
+        </div>
+        <span class="muted">Показываются 6 последних записей</span>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Контрагент</th>
+                <th>Сотрудник</th>
+                <th>Статус</th>
+                <th>Риск</th>
+                <th>Источник</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for check in history %}
+                <tr>
+                    <td class="muted">{{ check.date_time|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <strong>{{ check.counterparty.name }}</strong>
+                        <div class="muted mono">{{ check.counterparty.inn }}</div>
+                    </td>
+                    <td>{{ check.user.name }}</td>
+                    <td><span class="status-badge status-{{ check.result_data.status_class }}">{{ check.result_data.status }}</span></td>
+                    <td>{{ check.result_data.risk_score }}/100</td>
+                    <td class="muted">{% if check.result_data.source == "demo" %}демо-интеграция{% else %}{{ check.result_data.source }}{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6"><div class="empty-inline">История проверок пока пуста.</div></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel-card uk-margin-top">
+    <div class="panel-card-head">
+        <div>
+            <span class="page-kicker">Интеграции</span>
+            <h2>Бесплатные сервисы проверки контрагентов</h2>
+        </div>
+    </div>
+    <p class="muted">Сейчас используется демо-заглушка. Для реальной проверки можно подключить один из бесплатных источников:</p>
+    <ul uk-accordion="multiple: true">
+        <li>
+            <a class="uk-accordion-title" href>ФНС «Прозрачный бизнес» и открытые данные ЕГРЮЛ/ЕГРИП</a>
+            <div class="uk-accordion-content">
+                <p>Официальные данные ФНС: регистрация, руководитель, адрес, виды деятельности, налоговая задолженность, дисквалификация. Бесплатно, без коммерческих лимитов, но API требует парсинга открытых данных или выгрузок.</p>
+                <p class="muted">Подходит как основной источник юридически значимых сведений.</p>
+            </div>
+        </li>
+        <li>
+            <a class="uk-accordion-title" href>DaData.ru</a>
+            <div class="uk-accordion-content">
+                <p>Бесплатный тариф с ограничением по количеству запросов в сутки. Отдаёт данные ЕГРЮЛ/ЕГРИП по ИНН, подсказки адресов и реквизиты. Простой REST API и понятная документация.</p>
+                <p class="muted">Хороший вариант для быстрого старта: достаточно API-ключа и одного HTTP-запроса.</p>
+            </div>
+        </li>
+        <li>
+            <a class="uk-accordion-title" href>Checko.ru</a>
+            <div class="uk-accordion-content">
+                <p>Бесплатный API для некоммерческого использования с ограничениями по частоте. Агрегирует данные ФНС, арбитраж, финансы и риски.</p>
+            </div>
+        </li>
+        <li>
+            <a class="uk-accordion-title" href>ЗАЧЕСТНЫЙБИЗНЕС</a>
+            <div class="uk-accordion-content">
+                <p>Бесплатный базовый доступ и ограниченный API. Показывает риски, связи и историю изменений компании.</p>
+            </div>
+        </li>
+        <li>
+            <a class="uk-accordion-title" href>Контур.Фокус</a>
+            <div class="uk-accordion-content">
+                <p>Полноценный платный сервис, но есть демо-доступ и пробный период. Подходит для оценки качества данных перед покупкой лицензии.</p>
+            </div>
+        </li>
+        <li>
+            <a class="uk-accordion-title" href>БФО ФНС (bo.nalog.ru)</a>
+            <div class="uk-accordion-content">
+                <p>Бесплатная бухгалтерская отчётность компаний. Можно использовать как дополнительный источник финансовых показателей.</p>
+            </div>
+        </li>
+    </ul>
+</div>
+{% endblock %}

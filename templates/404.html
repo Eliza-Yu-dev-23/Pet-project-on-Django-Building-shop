@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Страница не найдена{% endblock %}
+{% block content %}
+<div class="error-page">
+    <div class="error-code">404</div>
+    <h1>Страница не найдена</h1>
+    <p>Возможно, адрес изменился или страница была удалена.</p>
+    <a class="uk-button uk-button-primary" href="{% url 'home' %}">На главную</a>
+</div>
+{% endblock %}

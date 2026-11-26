@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <span class="page-kicker">Профиль</span>
+        <h1>Мой личный кабинет</h1>
+        <p>Управляйте своими данными и паролем.</p>
+    </div>
+</div>
+
+<div class="uk-grid-large" uk-grid>
+    <div class="uk-width-2-3@l">
+        <div class="panel-card">
+            <div class="panel-card-head">
+                <div>
+                    <span class="page-kicker">Личные данные</span>
+                    <h2>Основная информация</h2>
+                </div>
+            </div>
+            {% if form.non_field_errors %}
+                <div class="uk-alert uk-alert-danger">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+            {% endif %}
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="action" value="profile">
+                <div class="uk-grid-small" uk-grid>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ form.name.id_for_label }}">Имя</label>
+                        {{ form.name }}
+                        {% for error in form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label">Логин</label>
+                        <input class="uk-input" type="text" value="{{ user.login }}" disabled>
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ form.department.id_for_label }}">Департамент</label>
+                        {{ form.department }}
+                        {% for error in form.department.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label">Роль</label>
+                        <input class="uk-input" type="text" value="{{ user.role_name }}" disabled>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="uk-button uk-button-primary" type="submit">Сохранить данные</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="panel-card uk-margin-top">
+            <div class="panel-card-head">
+                <div>
+                    <span class="page-kicker">Безопасность</span>
+                    <h2>Смена пароля</h2>
+                </div>
+            </div>
+            {% if password_form.non_field_errors %}
+                <div class="uk-alert uk-alert-danger">{% for error in password_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+            {% endif %}
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="action" value="password">
+                <div class="uk-grid-small" uk-grid>
+                    <div class="uk-width-1-1">
+                        <label class="uk-form-label" for="{{ password_form.current_password.id_for_label }}">Текущий пароль</label>
+                        {{ password_form.current_password }}
+                        {% for error in password_form.current_password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ password_form.new_password.id_for_label }}">Новый пароль</label>
+                        {{ password_form.new_password }}
+                        {% for error in password_form.new_password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="uk-width-1-2@s">
+                        <label class="uk-form-label" for="{{ password_form.confirm_password.id_for_label }}">Повторите пароль</label>
+                        {{ password_form.confirm_password }}
+                        {% for error in password_form.confirm_password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="uk-button uk-button-primary" type="submit">Изменить пароль</button>
+                </div>
+            </form>
+            <p class="uk-text-small muted uk-margin-remove-bottom">
+                При смене пароля динамическая соль генерируется заново, статическая соль из БД остаётся прежней.
+            </p>
+        </div>
+    </div>
+
+    <div class="uk-width-1-3@l">
+        <div class="profile-summary panel-card">
+            <span class="avatar avatar-xl {% if user.is_admin %}avatar-admin{% endif %}">{{ user.initials }}</span>
+            <h2>{{ user.name }}</h2>
+            <div class="role-badge {% if user.is_admin %}role-admin{% else %}role-employee{% endif %}">{{ user.role_name }}</div>
+            <dl class="uk-description-list">
+                <dt>Логин</dt>
+                <dd class="mono">{{ user.login }}</dd>
+                <dt>Департамент</dt>
+                <dd>{{ user.department_name }}</dd>
+                <dt>Статус</dt>
+                <dd>
+                    {% if user.active %}
+                        <span class="status-dot status-on">Активен</span>
+                    {% else %}
+                        <span class="status-dot status-off">Неактивен</span>
+                    {% endif %}
+                </dd>
+                <dt>Последний вход</dt>
+                <dd>{{ user.last_login|date:"d.m.Y H:i"|default:"—" }}</dd>
+            </dl>
+        </div>
+
+        <div class="panel-card uk-margin-top info-card">
+            <span class="page-kicker">Пароль</span>
+            <h2>Соли</h2>
+            <ul class="info-list">
+                <li><span>Статическая соль</span><strong class="mono">{{ user.hash|slice:":12" }}…</strong></li>
+                <li><span>Динамическая соль</span><strong>хранится в хеше</strong></li>
+                <li><span>Схема</span><strong>PBKDF2-SHA256</strong></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
