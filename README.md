@@ -186,6 +186,10 @@ HistoryCheckCounterparty (id, id_counterparty, id_user, date_time, result)
 ├── docs/counterparty_services.md
 ├── docker-compose.yml
 ├── start.ps1 / start.cmd   # запуск с автоподъёмом Docker Desktop
+├── AGENTS.md / CLAUDE.md   # инструкции для ИИ-агентов
+├── .claude/settings.json   # разрешения и Stop-hook Claude Code
+├── scripts/auto_commit.ps1 # автокоммит изменений
+├── scripts/watch_commit.ps1# автокоммит по изменениям в каталоге
 └── Dockerfile
 ```
 
@@ -205,6 +209,79 @@ docker compose exec web python manage.py check
 docker compose exec web python manage.py makemigrations
 docker compose exec web python manage.py migrate
 ```
+
+## Разработка с ИИ-агентом
+
+### Про бесплатный Claude
+
+Бесплатный тариф Claude (claude.ai) **не умеет менять файлы на компьютере**:
+он работает только в браузере. Claude Code — отдельный инструмент, который
+читает и правит проект локально, но в бесплатный тариф он не входит: нужен
+Claude Pro (около $20/мес), Max/Ultra или оплата API по токенам.
+
+Можно использовать claude.ai как советчика: он сгенерирует код или патч, но
+применять изменения и делать коммиты придётся вручную — это не автоматизация.
+
+Если нужен нулевой бюджет, возьмите агент с локальным доступом и бесплатной
+моделью:
+
+| Вариант | Стоимость | Правит файлы и запускает команды |
+|---|---|---|
+| **OpenCode + бесплатная модель** (уже используется здесь) | 0 | да |
+| Gemini CLI | бесплатный лимит Google-аккаунта | да |
+| Qwen Code | бесплатный лимит | да |
+| Cline / Roo Code в VS Code + бесплатный API-ключ | 0 | да |
+| GitHub Copilot Free в VS Code | 0 (лимит запросов) | да, agent mode |
+| Claude Code | Pro ~$20/мес или API | да |
+
+### Что уже настроено в проекте
+
+- `AGENTS.md` — правила для агента: как проверять и коммитить изменения.
+  Его читают OpenCode, Codex, Cursor и другие агенты.
+- `CLAUDE.md` — подключает `AGENTS.md` для Claude Code.
+- `scripts/auto_commit.ps1` — коммитит изменения, если они есть; не трогает
+  merge/rebase; с флагом `-Push` дополнительно делает `git push`.
+- `scripts/watch_commit.ps1` — следит за каталогом и коммитит после 45 секунд
+  тишины. Работает с любым агентом и даже при ручном редактировании.
+- `.claude/settings.json` — разрешения Claude Code и Stop-hook: когда агент
+  заканчивает ответ, автоматически вызывается `auto_commit.ps1`.
+
+### Как это работает
+
+1. Вы пишете указание агенту обычным текстом.
+2. Агент правит файлы в каталоге проекта.
+3. В конце задачи агент коммитит изменения по инструкции из `AGENTS.md`.
+   Дополнительно срабатывает Stop-hook (Claude Code) или watcher.
+
+Запуск watcher в отдельном терминале (необязательно):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_commit.ps1
+```
+
+Ручной автокоммит:
+
+```powershell
+.\scripts\auto_commit.ps1
+.\scripts\auto_commit.ps1 -Message "feat: новая функция"
+.\scripts\auto_commit.ps1 -Push
+```
+
+### Claude Code: пошагово
+
+1. Оформите Claude Pro или API-ключ.
+2. Установите CLI по официальной инструкции
+   (`npm install -g @anthropic-ai/claude-code`).
+3. Запустите в каталоге проекта: `claude`.
+4. При первом запуске подтвердите доверие к папке — тогда применятся
+   разрешения и Stop-hook из `.claude/settings.json`.
+
+### Важно
+
+- Автокоммит — страховка, а не замена ревью: проверяйте `git log` и `git diff`.
+- Секреты (`.env`, `demo_credentials.txt`) исключены из git.
+- По умолчанию автокоммит не делает push, чтобы не зависеть от сети.
+  Для автоматического push добавьте `-Push` в аргументы Stop-hook.
 
 ## Основные маршруты
 
