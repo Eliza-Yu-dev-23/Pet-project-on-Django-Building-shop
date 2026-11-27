@@ -84,7 +84,7 @@
         </ul>
         <form method="post" action="{% url 'logout' %}" class="uk-margin-top">
             {% csrf_token %}
-            <button class="uk-button uk-button-default uk-width-1-1" type="submit">Выйти</button>
+            <button class="uk-button uk-button-default uk-width-1-1 logout-danger" type="submit">Выйти</button>
         </form>
     </div>
 </div>

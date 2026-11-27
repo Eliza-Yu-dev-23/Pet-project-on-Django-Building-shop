@@ -16,7 +16,6 @@
     <div class="page-chips">
         <span class="chip">{{ department_count }} департаментов</span>
         <span class="chip">{{ user_count }} сотрудников</span>
-        <span class="chip chip-accent">ленивая загрузка jsTree</span>
     </div>
 </div>
 
@@ -28,7 +27,6 @@
                     <span class="page-kicker">Иерархия</span>
                     <h2>Департаменты</h2>
                 </div>
-                <span class="muted uk-text-small">AJAX</span>
             </div>
             <p class="tree-hint">Нажмите на стрелку, чтобы раскрыть отдел. Сотрудники отображаются внутри департаментов.</p>
             <div id="org-tree" data-tree-url="{% url 'org_tree' %}"></div>

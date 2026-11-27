@@ -18,7 +18,7 @@
                 <label class="uk-form-label" for="{{ form.inn.id_for_label }}">{{ form.inn.label }}</label>
                 {{ form.inn }}
                 {% for error in form.inn.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
-                <div class="uk-form-help">10 цифр для юридического лица, 12 — для ИП. Демо-ИНН: 7707083893.</div>
+                <div class="uk-form-help">10 цифр для юридического лица, 12 — для ИП. ИНН: 7707083893.</div>
             </div>
             <button class="uk-button uk-button-primary uk-button-large check-button" type="submit">
                 <span uk-icon="icon: search; ratio: .9" class="uk-margin-small-right"></span>Проверить
@@ -97,10 +97,6 @@
                         <span uk-icon="icon: {% if result.bankruptcy %}warning{% else %}check{% endif %}; ratio: .8"></span>
                         Банкротство: {% if result.bankruptcy %}в процессе{% else %}не выявлено{% endif %}
                     </li>
-                    <li class="risk-info">
-                        <span uk-icon="icon: info; ratio: .8"></span>
-                        {{ result.comment }}
-                    </li>
                 </ul>
             </div>
         </div>
@@ -124,7 +120,6 @@
                 <th>Сотрудник</th>
                 <th>Статус</th>
                 <th>Риск</th>
-                <th>Источник</th>
             </tr>
             </thead>
             <tbody>
@@ -138,63 +133,12 @@
                     <td>{{ check.user.name }}</td>
                     <td><span class="status-badge status-{{ check.result_data.status_class }}">{{ check.result_data.status }}</span></td>
                     <td>{{ check.result_data.risk_score }}/100</td>
-                    <td class="muted">{% if check.result_data.source == "demo" %}демо-интеграция{% else %}{{ check.result_data.source }}{% endif %}</td>
                 </tr>
             {% empty %}
-                <tr><td colspan="6"><div class="empty-inline">История проверок пока пуста.</div></td></tr>
+                <tr><td colspan="5"><div class="empty-inline">История проверок пока пуста.</div></td></tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
-
-<div class="panel-card uk-margin-top">
-    <div class="panel-card-head">
-        <div>
-            <span class="page-kicker">Интеграции</span>
-            <h2>Бесплатные сервисы проверки контрагентов</h2>
-        </div>
-    </div>
-    <p class="muted">Сейчас используется демо-заглушка. Для реальной проверки можно подключить один из бесплатных источников:</p>
-    <ul uk-accordion="multiple: true">
-        <li>
-            <a class="uk-accordion-title" href>ФНС «Прозрачный бизнес» и открытые данные ЕГРЮЛ/ЕГРИП</a>
-            <div class="uk-accordion-content">
-                <p>Официальные данные ФНС: регистрация, руководитель, адрес, виды деятельности, налоговая задолженность, дисквалификация. Бесплатно, без коммерческих лимитов, но API требует парсинга открытых данных или выгрузок.</p>
-                <p class="muted">Подходит как основной источник юридически значимых сведений.</p>
-            </div>
-        </li>
-        <li>
-            <a class="uk-accordion-title" href>DaData.ru</a>
-            <div class="uk-accordion-content">
-                <p>Бесплатный тариф с ограничением по количеству запросов в сутки. Отдаёт данные ЕГРЮЛ/ЕГРИП по ИНН, подсказки адресов и реквизиты. Простой REST API и понятная документация.</p>
-                <p class="muted">Хороший вариант для быстрого старта: достаточно API-ключа и одного HTTP-запроса.</p>
-            </div>
-        </li>
-        <li>
-            <a class="uk-accordion-title" href>Checko.ru</a>
-            <div class="uk-accordion-content">
-                <p>Бесплатный API для некоммерческого использования с ограничениями по частоте. Агрегирует данные ФНС, арбитраж, финансы и риски.</p>
-            </div>
-        </li>
-        <li>
-            <a class="uk-accordion-title" href>ЗАЧЕСТНЫЙБИЗНЕС</a>
-            <div class="uk-accordion-content">
-                <p>Бесплатный базовый доступ и ограниченный API. Показывает риски, связи и историю изменений компании.</p>
-            </div>
-        </li>
-        <li>
-            <a class="uk-accordion-title" href>Контур.Фокус</a>
-            <div class="uk-accordion-content">
-                <p>Полноценный платный сервис, но есть демо-доступ и пробный период. Подходит для оценки качества данных перед покупкой лицензии.</p>
-            </div>
-        </li>
-        <li>
-            <a class="uk-accordion-title" href>БФО ФНС (bo.nalog.ru)</a>
-            <div class="uk-accordion-content">
-                <p>Бесплатная бухгалтерская отчётность компаний. Можно использовать как дополнительный источник финансовых показателей.</p>
-            </div>
-        </li>
-    </ul>
 </div>
 {% endblock %}

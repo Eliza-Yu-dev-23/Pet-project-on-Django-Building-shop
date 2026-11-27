@@ -165,10 +165,7 @@ def build_demo_result(inn: str, name: str, checked_at=None) -> dict:
         "bankruptcy": bankruptcy,
         "source": "demo",
         "checked_at": (checked_at or timezone.now()).isoformat(),
-        "comment": (
-            "Демонстрационные данные. Реальная интеграция с сервисом проверки "
-            "контрагентов пока не подключена."
-        ),
+        "comment": "",
     }
 
 

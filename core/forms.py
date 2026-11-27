@@ -68,10 +68,7 @@ class UserForm(forms.ModelForm):
 
         if is_create:
             self.fields["password"].required = True
-            self.fields["password"].help_text = (
-                "Пароль будет сохранён как PBKDF2-хеш с динамической солью; "
-                "статическая соль автоматически попадёт в колонку hash."
-            )
+            self.fields["password"].help_text = ""
         else:
             self.fields["password"].help_text = (
                 "Оставьте поле пустым, чтобы сохранить текущий пароль."
@@ -196,8 +193,5 @@ class CounterpartyCheckForm(forms.Form):
         if len(inn) not in (10, 12):
             raise forms.ValidationError("ИНН юридического лица — 10 цифр, ИП — 12 цифр.")
         if not validate_inn(inn):
-            raise forms.ValidationError(
-                "ИНН не прошёл проверку контрольной суммы. "
-                "Для демонстрации подойдёт, например, 7707083893."
-            )
+            raise forms.ValidationError("ИНН не прошёл проверку контрольной суммы.")
         return inn
