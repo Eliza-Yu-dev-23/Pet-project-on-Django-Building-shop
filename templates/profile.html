@@ -85,9 +85,6 @@
                     <button class="uk-button uk-button-primary" type="submit">Изменить пароль</button>
                 </div>
             </form>
-            <p class="uk-text-small muted uk-margin-remove-bottom">
-                При смене пароля динамическая соль генерируется заново, статическая соль из БД остаётся прежней.
-            </p>
         </div>
     </div>
 
@@ -112,16 +109,6 @@
                 <dt>Последний вход</dt>
                 <dd>{{ user.last_login|date:"d.m.Y H:i"|default:"—" }}</dd>
             </dl>
-        </div>
-
-        <div class="panel-card uk-margin-top info-card">
-            <span class="page-kicker">Пароль</span>
-            <h2>Соли</h2>
-            <ul class="info-list">
-                <li><span>Статическая соль</span><strong class="mono">{{ user.hash|slice:":12" }}…</strong></li>
-                <li><span>Динамическая соль</span><strong>хранится в хеше</strong></li>
-                <li><span>Схема</span><strong>PBKDF2-SHA256</strong></li>
-            </ul>
         </div>
     </div>
 </div>

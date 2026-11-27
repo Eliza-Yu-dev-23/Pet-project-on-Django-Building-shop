@@ -223,6 +223,10 @@ a:hover { color: var(--brand); }
     color: var(--brand-2);
 }
 .page-head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.page-back { margin-bottom: 14px; }
+.page-back .uk-button { display: inline-flex; align-items: center; }
+.form-check-cell { display: flex; align-items: flex-end; }
+.form-check-cell .uk-checkbox-label { min-height: 40px; display: flex; align-items: center; }
 .page-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip {
     display: inline-flex;

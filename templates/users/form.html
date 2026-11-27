@@ -2,19 +2,22 @@
 {% block title %}{% if mode == "create" %}Новый пользователь{% else %}Редактирование пользователя{% endif %}{% endblock %}
 
 {% block content %}
+<div class="page-back">
+    <a class="uk-button uk-button-default" href="{% url 'users_list' %}">
+        <span uk-icon="icon: arrow-left; ratio: .8" class="uk-margin-small-right"></span>Назад к списку
+    </a>
+</div>
+
 <div class="page-head">
     <div>
         <span class="page-kicker">Администрирование</span>
         <h1>{% if mode == "create" %}Новый пользователь{% else %}Редактирование пользователя{% endif %}</h1>
         <p>{% if mode == "create" %}Создайте учётную запись и назначьте роль с департаментом.{% else %}Измените данные, роль, департамент или пароль сотрудника.{% endif %}</p>
     </div>
-    <div class="page-head-actions">
-        <a class="uk-button uk-button-default" href="{% url 'users_list' %}">Назад к списку</a>
-    </div>
 </div>
 
-<div class="uk-grid-large" uk-grid>
-    <div class="uk-width-2-3@l">
+<div class="user-form-wrap">
+    <div>
         <div class="panel-card">
             {% if form.non_field_errors %}
                 <div class="uk-alert uk-alert-danger">
@@ -24,27 +27,27 @@
             <form method="post" novalidate>
                 {% csrf_token %}
                 <div class="uk-grid-small" uk-grid>
-                    <div class="uk-width-1-2@s">
+                    <div class="uk-width-1-3@m">
                         <label class="uk-form-label" for="{{ form.login.id_for_label }}">Логин <span class="req">*</span></label>
                         {{ form.login }}
                         {% for error in form.login.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </div>
-                    <div class="uk-width-1-2@s">
+                    <div class="uk-width-1-3@m">
                         <label class="uk-form-label" for="{{ form.name.id_for_label }}">Имя <span class="req">*</span></label>
                         {{ form.name }}
                         {% for error in form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </div>
-                    <div class="uk-width-1-2@s">
+                    <div class="uk-width-1-3@m">
                         <label class="uk-form-label" for="{{ form.role.id_for_label }}">Роль <span class="req">*</span></label>
                         {{ form.role }}
                         {% for error in form.role.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </div>
-                    <div class="uk-width-1-2@s">
+                    <div class="uk-width-1-3@m">
                         <label class="uk-form-label" for="{{ form.department.id_for_label }}">Департамент</label>
                         {{ form.department }}
                         {% for error in form.department.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </div>
-                    <div class="uk-width-1-1">
+                    <div class="uk-width-1-3@m">
                         <label class="uk-form-label" for="{{ form.password.id_for_label }}">
                             Пароль {% if mode == "create" %}<span class="req">*</span>{% endif %}
                         </label>
@@ -52,7 +55,7 @@
                         <div class="uk-form-help">{{ form.password.help_text }}</div>
                         {% for error in form.password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </div>
-                    <div class="uk-width-1-1">
+                    <div class="uk-width-1-3@m form-check-cell">
                         <label class="uk-checkbox-label">
                             {{ form.active }}
                             <span>Учётная запись активна (разрешить вход)</span>
