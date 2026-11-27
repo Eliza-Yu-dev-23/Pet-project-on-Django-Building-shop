@@ -41,21 +41,23 @@
                             <a href="{% url 'users_list' %}">Пользователи</a>
                         </li>
                     {% endif %}
-                    <li class="{% if '/profile/' in request.path %}uk-active{% endif %}">
-                        <a href="{% url 'profile' %}">Личный кабинет</a>
-                    </li>
                 </ul>
-                <div class="user-chip uk-visible@m">
-                    <span class="avatar">{{ user.initials }}</span>
-                    <span class="user-chip-text">
-                        <strong>{{ user.name }}</strong>
-                        <small>{{ user.role_name }}</small>
-                    </span>
+                <div class="user-menu uk-visible@m">
+                    <div class="user-chip" tabindex="0" aria-haspopup="true">
+                        <span class="avatar">{{ user.initials }}</span>
+                        <span class="user-chip-text">
+                            <strong>{{ user.name }}</strong>
+                            <small>{{ user.role_name }}</small>
+                        </span>
+                    </div>
+                    <div class="user-menu-dropdown">
+                        <a href="{% url 'profile' %}" class="{% if '/profile/' in request.path %}is-active{% endif %}">Личный кабинет</a>
+                        <form method="post" action="{% url 'logout' %}" class="logout-form">
+                            {% csrf_token %}
+                            <button type="submit">Выйти</button>
+                        </form>
+                    </div>
                 </div>
-                <form method="post" action="{% url 'logout' %}" class="logout-form uk-visible@m">
-                    {% csrf_token %}
-                    <button class="uk-button uk-button-ghost uk-button-small" type="submit">Выйти</button>
-                </form>
                 <button class="uk-navbar-toggle uk-hidden@m nav-toggle" type="button"
                         uk-navbar-toggle-icon uk-toggle="target: #mobile-nav" aria-label="Меню"></button>
             </div>
@@ -105,12 +107,7 @@
 
 <footer class="app-footer">
     <div class="uk-container uk-container-large footer-inner">
-        <div>© 2026 «СтройБаза» — строительный магазин. Корпоративный портал.</div>
-        <div class="footer-links">
-            <a href="{% url 'org_structure' %}">Орг структура</a>
-            <a href="{% url 'counterparty_check' %}">Проверка контрагента</a>
-            <a href="{% url 'profile' %}">Личный кабинет</a>
-        </div>
+        <div>© {% now "Y" %} «СтройБаза» — строительный магазин. Корпоративный портал.</div>
     </div>
 </footer>
 
