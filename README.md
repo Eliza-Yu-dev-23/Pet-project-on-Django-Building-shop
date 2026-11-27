@@ -16,9 +16,24 @@ Pet-проект на Django 5 + PostgreSQL: корпоративный сайт
 
 ## Быстрый старт
 
+Самый простой способ — запустить `start.ps1` (или двойной клик по `start.cmd`):
+скрипт сам запустит Docker Desktop, дождётся движка, соберёт контейнеры
+и откроет портал в браузере.
+
+```powershell
+.\start.ps1
+```
+
+Либо вручную:
+
 ```bash
 docker compose up -d --build
 ```
+
+> Важно: перед запуском должен работать **Docker Desktop** (Docker Engine).
+> Если он закрыт, команда падает с ошибкой
+> `open //./pipe/docker_engine: The system cannot find the file specified` —
+> это не ошибка проекта, а не запущенный Docker.
 
 Контейнер `web` сам выполняет миграции и наполнение демо-данными, затем
 запускает сервер на <http://localhost:8000>.
@@ -34,6 +49,28 @@ docker compose down
 ```bash
 docker compose down -v
 ```
+
+### Если проект не запускается
+
+1. Проверьте, что Docker Engine доступен: `docker info`. Если команда
+   возвращает ошибку — запустите Docker Desktop и дождитесь статуса
+   «Engine running» (или используйте `.\start.ps1`).
+2. Посмотрите статус и логи контейнеров:
+
+   ```bash
+   docker compose ps
+   docker compose logs --tail=100 web
+   ```
+
+3. Если порт занят (`bind: address already in use`), найдите процесс:
+
+   ```powershell
+   netstat -ano | findstr :8000
+   ```
+
+   и остановите его либо измените порт в `docker-compose.yml`.
+4. Если база осталась в некорректном состоянии после экспериментов,
+   пересоздайте её: `docker compose down -v` и снова `docker compose up -d --build`.
 
 ## Демо-доступы
 
@@ -148,6 +185,7 @@ HistoryCheckCounterparty (id, id_counterparty, id_user, date_time, result)
 ├── static/js/org.js        # ленивое дерево jsTree
 ├── docs/counterparty_services.md
 ├── docker-compose.yml
+├── start.ps1 / start.cmd   # запуск с автоподъёмом Docker Desktop
 └── Dockerfile
 ```
 
