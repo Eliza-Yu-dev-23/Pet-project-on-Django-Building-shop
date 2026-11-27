@@ -78,25 +78,55 @@ check("сотрудников в дереве 17", info["employee_count"] == 17,
 user_info = client.get(reverse("user_info", args=[employee.pk])).json()
 check("панель пользователя", user_info["kind"] == "user" and user_info["login"] == "employee")
 
-# Проверка контрагента: кэш, новая проверка, история.
-cp = Counterparty.objects.get(inn="7707083893")
-before = cp.checks.count()
-response = client.post(reverse("counterparty_check"), {"inn": "7707083893"})
-check("кэш проверки < 30 дней", response.status_code == 200 and "Использован кэш" in response.content.decode())
-check("история не выросла при кэше", cp.checks.count() == before, str(cp.checks.count()))
+# Проверка контрагента: внешний сервис подменяется заглушкой, сеть не нужна.
+from unittest import mock
+
+from core.services.counterparty import CounterpartyServiceError, build_result
+
+fake_company = {
+    "ОГРН": "1027700132195",
+    "ДатаРег": "2002-08-16",
+    "НаимСокр": "ООО «Тест»",
+    "Статус": {"Наим": "Не находится в процессе ликвидации, банкротства"},
+    "Руковод": [{"ФИО": "Иванов Иван Иванович"}],
+    "ЮрАдрес": {"АдресРФ": "г. Москва, ул. Тестовая, д. 1"},
+    "ОКВЭД": {"Код": "47.52", "Наим": "Торговля розничная"},
+    "СЧР": 25,
+}
+fake_result = build_result("7707329152", fake_company, 2)
+check("разбор ответа: название", fake_result["name"] == "ООО «Тест»")
+check("разбор ответа: банкротство не выявлено", fake_result["bankruptcy"] is False)
+check("разбор ответа: источник", fake_result["source"] == "checko")
 
 new_inn = "7707329152"
 Counterparty.objects.filter(inn=new_inn).delete()
-response = client.post(reverse("counterparty_check"), {"inn": new_inn})
-check("новая проверка по ИНН", response.status_code == 200 and "Выполнена новая проверка" in response.content.decode())
-check("создан контрагент", Counterparty.objects.filter(inn=new_inn).exists())
-new_cp = Counterparty.objects.get(inn=new_inn)
-check("создана запись истории", new_cp.checks.count() == 1)
-check("история от текущего пользователя", new_cp.checks.first().user_id == admin.pk)
+with mock.patch("core.views.run_counterparty_check", return_value=fake_result) as api:
+    response = client.post(reverse("counterparty_check"), {"inn": new_inn})
+    check("новая проверка по ИНН", response.status_code == 200 and "Выполнена новая проверка" in response.content.decode())
+    new_cp = Counterparty.objects.get(inn=new_inn)
+    check("название контрагента из сервиса", new_cp.name == "ООО «Тест»")
+    check("создана запись истории", new_cp.checks.count() == 1)
+    check("история от текущего пользователя", new_cp.checks.first().user_id == admin.pk)
 
-response = client.post(reverse("counterparty_check"), {"inn": new_inn})
-check("повторная проверка из кэша", "Использован кэш" in response.content.decode())
-check("записей всё ещё 1", new_cp.checks.count() == 1)
+    response = client.post(reverse("counterparty_check"), {"inn": new_inn})
+    check("повторная проверка из кэша", "Использован кэш" in response.content.decode())
+    check("сервис вызван один раз", api.call_count == 1, str(api.call_count))
+    check("записей всё ещё 1", new_cp.checks.count() == 1)
+
+# Ошибка интеграции: пользователь видит «Произошла ошибка», текст — только в БД.
+err_inn = "7707083893"
+Counterparty.objects.filter(inn=err_inn).delete()
+secret_detail = "company: HTTP 503 (секретная техническая деталь)"
+with mock.patch(
+    "core.views.run_counterparty_check", side_effect=CounterpartyServiceError(secret_detail)
+):
+    response = client.post(reverse("counterparty_check"), {"inn": err_inn})
+html = response.content.decode()
+check("ошибка интеграции: сообщение пользователю", "Произошла ошибка" in html)
+check("ошибка интеграции: текст ошибки скрыт", "секретная" not in html and "HTTP 503" not in html)
+failed_record = HistoryCheckCounterparty.objects.filter(counterparty__inn=err_inn).first()
+check("ошибка сохранена в БД", failed_record is not None and failed_record.error_text == secret_detail)
+check("ошибочная запись не в успешных", not HistoryCheckCounterparty.objects.successful().filter(counterparty__inn=err_inn).exists())
 
 response = client.post(reverse("counterparty_check"), {"inn": "1234567890"})
 check("некорректный ИНН отклонён", "контрольной суммы" in response.content.decode())

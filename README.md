@@ -126,12 +126,15 @@ docker compose down -v
   суммы ИНН (10/12 цифр).
 * Логика кэширования: если компанию проверяли менее 30 дней назад,
   интеграция не вызывается — показывается последний результат.
-* Если прошло больше 30 дней — выполняется «интеграция» (сейчас
-  демо-генератор), создаётся запись в истории с текущим пользователем.
+* Если прошло больше 30 дней — выполняется запрос к API Checko, создаётся
+  запись в истории с текущим пользователем. Нужен ключ `CHECKO_API_KEY`
+  (см. `.env.example`).
+* При любой ошибке интеграции пользователь видит «Произошла ошибка», а текст
+  ошибки сохраняется в БД (`HistoryCheckCounterparty.error_text`) и на сайте не
+  показывается.
 * В любом случае выводятся последние 6 записей истории по компании.
-* Список бесплатных сервисов для реальной интеграции — в
-  [`docs/counterparty_services.md`](docs/counterparty_services.md) и в
-  аккордеоне на самой странице.
+* Почему выбран Checko, а не Контур.Фокус, и какие данные откуда берутся —
+  в [`docs/counterparty_services.md`](docs/counterparty_services.md).
 
 ### 4. Авторизация
 
@@ -148,7 +151,7 @@ Role (id, name)
 Department (id, name, id_parent, id_boss)
 User (id, login, name, password, id_depart, active, hash, id_role)
 Counterparty (id, name, inn)
-HistoryCheckCounterparty (id, id_counterparty, id_user, date_time, result)
+HistoryCheckCounterparty (id, id_counterparty, id_user, date_time, result, error_text)
 ```
 
 `result` хранит JSON с результатом проверки.

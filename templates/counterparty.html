@@ -27,6 +27,12 @@
     </form>
 </div>
 
+{% if error %}
+    <div class="uk-alert uk-alert-danger uk-margin-top">
+        <p>Произошла ошибка</p>
+    </div>
+{% endif %}
+
 {% if result %}
     <div class="panel-card result-card uk-margin-top">
         <div class="result-head">
@@ -48,7 +54,7 @@
         {% if cached %}
             <div class="uk-alert uk-alert-warning uk-margin-top">
                 <strong>Использован кэш.</strong>
-                Проверка по интеграции не выполнялась: предыдущая проверка была менее 30 дней назад.
+                Запрос к сервису проверки не выполнялся: предыдущая проверка была менее 30 дней назад.
                 Следующая доступна после {{ cache_until|date:"d.m.Y H:i" }}.
             </div>
         {% else %}
@@ -66,7 +72,7 @@
         <div class="uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin-medium-top" uk-grid>
             <div><div class="mini-stat"><span class="mini-stat-label">ОГРН</span><span class="mini-stat-value mono">{{ result.ogrn }}</span></div></div>
             <div><div class="mini-stat"><span class="mini-stat-label">Дата регистрации</span><span class="mini-stat-value">{{ result.registration_date_display|default:result.registration_date }}</span></div></div>
-            <div><div class="mini-stat"><span class="mini-stat-label">Сотрудников</span><span class="mini-stat-value">{{ result.employees }}</span></div></div>
+            <div><div class="mini-stat"><span class="mini-stat-label">Сотрудников</span><span class="mini-stat-value">{{ result.employees|default_if_none:"—" }}</span></div></div>
             <div><div class="mini-stat"><span class="mini-stat-label">Арбитражных дел</span><span class="mini-stat-value">{{ result.arbitration_cases }}</span></div></div>
         </div>
 
@@ -85,14 +91,18 @@
             <div class="uk-width-1-2@m">
                 <h3 class="panel-section-title">Факторы риска</h3>
                 <ul class="risk-list">
+                    {% if result.tax_debts is not None %}
                     <li class="{% if result.tax_debts %}risk-flag{% else %}risk-ok{% endif %}">
                         <span uk-icon="icon: {% if result.tax_debts %}warning{% else %}check{% endif %}; ratio: .8"></span>
                         Налоговая задолженность: {% if result.tax_debts %}обнаружена{% else %}не обнаружена{% endif %}
                     </li>
+                    {% endif %}
+                    {% if result.sanctions is not None %}
                     <li class="{% if result.sanctions %}risk-flag{% else %}risk-ok{% endif %}">
                         <span uk-icon="icon: {% if result.sanctions %}warning{% else %}check{% endif %}; ratio: .8"></span>
                         Санкции: {% if result.sanctions %}есть{% else %}нет{% endif %}
                     </li>
+                    {% endif %}
                     <li class="{% if result.bankruptcy %}risk-flag{% else %}risk-ok{% endif %}">
                         <span uk-icon="icon: {% if result.bankruptcy %}warning{% else %}check{% endif %}; ratio: .8"></span>
                         Банкротство: {% if result.bankruptcy %}в процессе{% else %}не выявлено{% endif %}

@@ -1,15 +1,28 @@
-"""Сервис проверки контрагентов.
+"""Сервис проверки контрагентов на основе API Checko (api.checko.ru, v2).
 
-Сейчас интеграция с внешним API отсутствует: результат генерируется
-демонстрационно (``build_demo_result``). Точка подключения реального сервиса —
-функция ``run_counterparty_check``. Варианты бесплатных интеграций описаны в
-``docs/counterparty_services.md``.
+Контур.Фокус для API платный и бесплатного тарифа не имеет, поэтому используется
+Checko: бесплатный тариф даёт 100 запросов в сутки на все методы.
+
+Одна проверка = 2 запроса: ``/v2/company`` (или ``/v2/entrepreneur`` для ИП) и
+``/v2/legal-cases`` (количество арбитражных дел).
+
+Любая проблема при работе с интеграцией превращается в
+``CounterpartyServiceError``. Его ``detail`` — технический текст для БД
+(колонка ``HistoryCheckCounterparty.error_text``), пользователю он не
+показывается; ключ API в ``detail`` не попадает.
 """
-import hashlib
-import random
-from datetime import date, timedelta
+import json
+import os
+import socket
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import date, datetime, timezone
 
-from django.utils import timezone
+SOURCE_NAME = "checko"
+
+API_BASE = "https://api.checko.ru/v2"
+REQUEST_TIMEOUT = 10  # секунд
 
 STATUS_RELIABLE = "Надёжный"
 STATUS_MEDIUM = "Средний риск"
@@ -21,75 +34,13 @@ _STATUS_CLASS = {
     STATUS_HIGH: "danger",
 }
 
-_COMPANY_PREFIXES = [
-    "Строй",
-    "Мастер",
-    "Глав",
-    "Пром",
-    "Бетон",
-    "Инструмент",
-    "Строй-",
-    "Торг",
-]
-_COMPANY_SUFFIXES = [
-    "Трест",
-    "Снаб",
-    "Монтаж",
-    "Бетон",
-    "Профи",
-    "Логистик",
-    "Мастер",
-    "Комплект",
-]
-_SURNAMES = [
-    "Смирнов",
-    "Иванов",
-    "Кузнецов",
-    "Соколов",
-    "Попов",
-    "Лебедев",
-    "Козлов",
-    "Новиков",
-    "Морозов",
-    "Волков",
-]
-_INITIALS = ["А. В.", "С. П.", "И. И.", "Д. А.", "М. С.", "Е. Н.", "П. О."]
-_DIRECTORS = [
-    "Смирнов Алексей Викторович",
-    "Иванов Дмитрий Сергеевич",
-    "Кузнецова Елена Павловна",
-    "Соколов Игорь Анатольевич",
-    "Морозова Ольга Ивановна",
-    "Волков Сергей Николаевич",
-    "Лебедев Павел Андреевич",
-    "Новикова Мария Алексеевна",
-]
-_CITIES = [
-    "г. Москва",
-    "г. Санкт-Петербург",
-    "г. Екатеринбург",
-    "г. Новосибирск",
-    "г. Казань",
-    "г. Краснодар",
-    "г. Нижний Новгород",
-]
-_STREETS = [
-    "ул. Строителей",
-    "ул. Промышленная",
-    "пр-т Мира",
-    "ул. Заводская",
-    "ул. Мастеровая",
-    "ул. Бетонная",
-    "ул. Индустриальная",
-]
-_OKVED = [
-    "46.73 — Торговля оптовая лесоматериалами, строительными материалами и санитарно-техническим оборудованием",
-    "47.52 — Торговля розничная скобяными изделиями, лакокрасочными материалами и стеклом",
-    "43.99 — Работы строительные специализированные прочие",
-    "41.20 — Строительство жилых и нежилых зданий",
-    "46.74 — Торговля оптовая скобяными изделиями и водопроводным оборудованием",
-    "47.53 — Торговля розничная строительными материалами",
-]
+
+class CounterpartyServiceError(Exception):
+    """Ошибка интеграции; ``detail`` сохраняется в БД и не показывается на сайте."""
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
 
 
 def validate_inn(inn: str) -> bool:
@@ -110,71 +61,210 @@ def validate_inn(inn: str) -> bool:
     return control_11 == digits[10] and control_12 == digits[11]
 
 
-def generate_counterparty_name(inn: str) -> str:
-    """Правдоподобное название компании, детерминированное по ИНН."""
-    rnd = random.Random(int(hashlib.md5(inn.encode("utf-8")).hexdigest(), 16))
-    if len(inn) == 12:
-        return f"ИП {rnd.choice(_SURNAMES)} {rnd.choice(_INITIALS)}"
-    return f"ООО «{rnd.choice(_COMPANY_PREFIXES)}{rnd.choice(_COMPANY_SUFFIXES)}»"
+# ---------------------------------------------------------------------------
+# HTTP-клиент
+# ---------------------------------------------------------------------------
+def _api_key() -> str:
+    key = os.getenv("CHECKO_API_KEY", "").strip()
+    if not key:
+        raise CounterpartyServiceError("Не задан CHECKO_API_KEY")
+    return key
 
 
-def _random_ogrn(inn: str, rnd: random.Random) -> str:
-    if len(inn) == 12:
-        return str(rnd.randint(3, 4)) + "".join(str(rnd.randint(0, 9)) for _ in range(14))
-    return str(rnd.choice([1, 5])) + "".join(str(rnd.randint(0, 9)) for _ in range(12))
+def _call(method: str, params: dict) -> dict:
+    """GET-запрос к Checko. Возвращает ``data`` ответа или кидает ошибку."""
+    query = urllib.parse.urlencode({"key": _api_key(), **params})
+    url = f"{API_BASE}/{method}?{query}"
+    try:
+        with urllib.request.urlopen(url, timeout=REQUEST_TIMEOUT) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        raise CounterpartyServiceError(f"{method}: HTTP {exc.code}") from None
+    except (socket.timeout, TimeoutError):
+        raise CounterpartyServiceError(f"{method}: превышено время ожидания") from None
+    except urllib.error.URLError as exc:
+        raise CounterpartyServiceError(f"{method}: сеть недоступна ({exc.reason})") from None
+    except OSError as exc:
+        raise CounterpartyServiceError(f"{method}: {type(exc).__name__}") from None
+
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        raise CounterpartyServiceError(f"{method}: ответ не является JSON") from None
+    if not isinstance(payload, dict):
+        raise CounterpartyServiceError(f"{method}: неожиданный формат ответа")
+
+    meta = payload.get("meta") or {}
+    if meta.get("status") == "error":
+        raise CounterpartyServiceError(
+            f"{method}: {str(meta.get('message') or 'ошибка сервиса')[:300]}"
+        )
+    data = payload.get("data")
+    if not data:
+        raise CounterpartyServiceError(f"{method}: нет данных по ИНН {params.get('inn')}")
+    return data
 
 
-def build_demo_result(inn: str, name: str, checked_at=None) -> dict:
-    """Демонстрационный результат проверки (заглушка вместо интеграции)."""
-    rnd = random.Random()
-    roll = rnd.random()
-    if roll < 0.56:
-        status = STATUS_RELIABLE
-        risk_score = rnd.randint(4, 28)
-    elif roll < 0.87:
-        status = STATUS_MEDIUM
-        risk_score = rnd.randint(32, 64)
+# ---------------------------------------------------------------------------
+# Разбор ответа
+# ---------------------------------------------------------------------------
+def _dig(value, *path):
+    for key in path:
+        if isinstance(value, dict):
+            value = value.get(key)
+        else:
+            return None
+    return value
+
+
+def _positive(value) -> bool:
+    """Есть ли в значении (число / словарь / список) положительная сумма."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return value > 0
+    if isinstance(value, dict):
+        return any(_positive(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_positive(item) for item in value)
+    return False
+
+
+def _tax_debts(data: dict):
+    """True/False, если сервис отдаёт сведения о недоимке, иначе None."""
+    taxes = data.get("Налоги")
+    if not isinstance(taxes, dict):
+        return None
+    for key, value in taxes.items():
+        lowered = str(key).lower()
+        if "недоим" in lowered or "задолж" in lowered:
+            return _positive(value)
+    return None
+
+
+def _status_flags(status_text: str):
+    """(неактивна/ликвидируется, банкротство) по текстовому статусу ЕГРЮЛ."""
+    text = (status_text or "").lower()
+    if not text or "не находится" in text:
+        return False, False
+    bankrupt = "банкрот" in text
+    inactive = any(mark in text for mark in ("ликвидац", "исключ", "прекращ"))
+    return inactive, bankrupt
+
+
+def _to_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _calc_risk(*, inactive, bankrupt, tax_debts, sanctions, arbitration, age_days):
+    score = 0
+    if inactive:
+        score += 60
+    if bankrupt:
+        score += 40
+    if sanctions:
+        score += 50
+    if tax_debts:
+        score += 25
+    score += min(arbitration, 10) * 3
+    if age_days is not None:
+        if age_days < 365:
+            score += 15
+        elif age_days < 3 * 365:
+            score += 5
+    return min(score, 100)
+
+
+def build_result(inn: str, data: dict, arbitration_total: int) -> dict:
+    """Приводит ответ Checko к словарю, который показывает страница проверки."""
+    is_ip = len(inn) == 12
+
+    if is_ip:
+        name = f"ИП {data.get('ФИО') or inn}".strip()
+        ogrn = data.get("ОГРНИП")
+        director = data.get("ФИО")
     else:
-        status = STATUS_HIGH
-        risk_score = rnd.randint(68, 94)
+        name = data.get("НаимСокр") or data.get("НаимПолн") or f"ИНН {inn}"
+        ogrn = data.get("ОГРН")
+        managers = data.get("Руковод")
+        first = managers[0] if isinstance(managers, list) and managers else managers
+        director = _dig(first, "ФИО")
 
-    registration = date.today() - timedelta(days=rnd.randint(800, 7200))
-    employees = rnd.randint(6, 240)
-    arbitration = rnd.randint(0, 9) if status != STATUS_RELIABLE else rnd.randint(0, 2)
-    tax_debts = status == STATUS_HIGH or (status == STATUS_MEDIUM and rnd.random() < 0.35)
-    sanctions = status == STATUS_HIGH and rnd.random() < 0.3
-    bankruptcy = status == STATUS_HIGH and rnd.random() < 0.2
+    address = data.get("ЮрАдрес")
+    legal_address = address.get("АдресРФ") if isinstance(address, dict) else address
+
+    okved = data.get("ОКВЭД")
+    okved_text = None
+    if isinstance(okved, dict) and okved.get("Код"):
+        okved_text = f"{okved['Код']} — {okved.get('Наим', '')}".rstrip(" —")
+
+    registration = None
+    raw_date = data.get("ДатаРег")
+    if raw_date:
+        try:
+            registration = date.fromisoformat(str(raw_date)[:10])
+        except ValueError:
+            registration = None
+
+    status_text = _dig(data, "Статус", "Наим") or ""
+    inactive, bankrupt = _status_flags(status_text)
+    tax_debts = _tax_debts(data)
+    sanctions = bool(data["Санкции"]) if "Санкции" in data else None
+    age_days = (date.today() - registration).days if registration else None
+
+    risk_score = _calc_risk(
+        inactive=inactive,
+        bankrupt=bankrupt,
+        tax_debts=tax_debts,
+        sanctions=sanctions,
+        arbitration=arbitration_total,
+        age_days=age_days,
+    )
+    if risk_score < 30:
+        status, risk_label = STATUS_RELIABLE, "низкий"
+    elif risk_score < 65:
+        status, risk_label = STATUS_MEDIUM, "умеренный"
+    else:
+        status, risk_label = STATUS_HIGH, "высокий"
 
     return {
+        "name": name,
         "status": status,
         "status_class": _STATUS_CLASS[status],
         "risk_score": risk_score,
-        "risk_label": (
-            "низкий" if risk_score < 30 else "умеренный" if risk_score < 65 else "высокий"
-        ),
-        "ogrn": _random_ogrn(inn, rnd),
-        "registration_date": registration.isoformat(),
-        "registration_date_display": registration.strftime("%d.%m.%Y"),
-        "director": rnd.choice(_DIRECTORS),
-        "legal_address": f"{rnd.choice(_CITIES)}, {rnd.choice(_STREETS)}, д. {rnd.randint(1, 120)}",
-        "okved": rnd.choice(_OKVED),
-        "employees": employees,
-        "arbitration_cases": arbitration,
+        "risk_label": risk_label,
+        "ogrn": ogrn or "—",
+        "registration_date": registration.isoformat() if registration else "",
+        "registration_date_display": registration.strftime("%d.%m.%Y") if registration else "—",
+        "director": director or "—",
+        "legal_address": legal_address or "—",
+        "okved": okved_text or "—",
+        "employees": _to_int(data.get("СЧР")),
+        "arbitration_cases": arbitration_total,
         "tax_debts": tax_debts,
         "sanctions": sanctions,
-        "bankruptcy": bankruptcy,
-        "source": "demo",
-        "checked_at": (checked_at or timezone.now()).isoformat(),
+        "bankruptcy": bankrupt,
+        "source": SOURCE_NAME,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
         "comment": "",
     }
 
 
-def run_counterparty_check(inn: str, name: str) -> dict:
-    """Точка подключения внешнего сервиса проверки контрагентов.
+def run_counterparty_check(inn: str) -> dict:
+    """Проверяет контрагента через Checko.
 
-    Чтобы подключить реальный сервис (DaData, ФНС «Прозрачный бизнес»,
-    Checko и т.п.), достаточно заменить тело функции на HTTP-запрос и
-    привести ответ к тому же словарю, который возвращает
-    ``build_demo_result``.
+    Кидает ``CounterpartyServiceError`` при любой проблеме с интеграцией.
     """
-    return build_demo_result(inn, name)
+    try:
+        method = "entrepreneur" if len(inn) == 12 else "company"
+        data = _call(method, {"inn": inn})
+        cases = _call("legal-cases", {"inn": inn, "role": "defendant", "limit": 1})
+        total = _to_int(_dig(cases, "ЗапВсего")) or 0
+        return build_result(inn, data, total)
+    except CounterpartyServiceError:
+        raise
+    except Exception as exc:  # неожиданный формат данных и т.п.
+        raise CounterpartyServiceError(f"Ошибка разбора ответа: {type(exc).__name__}: {exc}") from None

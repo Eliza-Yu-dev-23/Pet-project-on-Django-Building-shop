@@ -31,7 +31,8 @@ from .models import (
     User,
 )
 from .services.counterparty import (
-    generate_counterparty_name,
+    SOURCE_NAME,
+    CounterpartyServiceError,
     run_counterparty_check,
 )
 
@@ -115,12 +116,12 @@ def home(request):
         "users": User.objects.count(),
         "departments": Department.objects.count(),
         "counterparties": Counterparty.objects.count(),
-        "checks": HistoryCheckCounterparty.objects.count(),
+        "checks": HistoryCheckCounterparty.objects.successful().count(),
     }
-    recent_checks = HistoryCheckCounterparty.objects.select_related(
+    recent_checks = HistoryCheckCounterparty.objects.successful().select_related(
         "counterparty", "user"
     )[:6]
-    my_checks = HistoryCheckCounterparty.objects.select_related(
+    my_checks = HistoryCheckCounterparty.objects.successful().select_related(
         "counterparty"
     ).filter(user=request.user)[:4]
     top_departments = (
@@ -398,7 +399,7 @@ def user_info(request, pk):
             "kind": "user",
             **_user_brief(user),
             "headed_departments": headed,
-            "checks_count": user.counterparty_checks.count(),
+            "checks_count": user.counterparty_checks.successful().count(),
         }
     )
 
@@ -429,24 +430,33 @@ def counterparty_check(request):
     form = CounterpartyCheckForm(request.POST or None)
     context = {
         "form": form,
-        "history": HistoryCheckCounterparty.objects.select_related(
+        "history": HistoryCheckCounterparty.objects.successful().select_related(
             "counterparty", "user"
         )[:6],
         "history_title": "Последние проверки в компании",
         "result": None,
         "counterparty": None,
         "cached": False,
+        "error": False,
     }
 
     if request.method == "POST" and form.is_valid():
         inn = form.cleaned_data["inn"]
-        counterparty, created = Counterparty.objects.get_or_create(
-            inn=inn,
-            defaults={"name": generate_counterparty_name(inn)},
+        counterparty = Counterparty.objects.filter(inn=inn).first()
+        latest = (
+            counterparty.checks.successful().select_related("user").first()
+            if counterparty
+            else None
         )
-        latest = counterparty.checks.select_related("user").first()
         now = timezone.now()
-        cached = bool(latest and now - latest.date_time < CACHE_PERIOD)
+        # Кэшем считаются только результаты реальной интеграции: старые
+        # демо-записи (source = "demo") не используются.
+        cached = bool(
+            latest
+            and now - latest.date_time < CACHE_PERIOD
+            and latest.result_data.get("source") == SOURCE_NAME
+        )
+        created = False
 
         if cached:
             result = dict(latest.result_data)
@@ -461,7 +471,27 @@ def counterparty_check(request):
             checked_by = latest.user
             cache_until = latest.date_time + CACHE_PERIOD
         else:
-            result = run_counterparty_check(inn, counterparty.name)
+            try:
+                result = run_counterparty_check(inn)
+            except CounterpartyServiceError as exc:
+                # Текст ошибки сохраняем в БД, пользователю он не показывается.
+                if counterparty is None:
+                    counterparty = Counterparty.objects.create(inn=inn, name=f"ИНН {inn}")
+                HistoryCheckCounterparty.objects.create(
+                    counterparty=counterparty,
+                    user=request.user,
+                    result="",
+                    error_text=exc.detail[:2000],
+                )
+                context["error"] = True
+                return render(request, "counterparty.html", context)
+
+            if counterparty is None:
+                counterparty = Counterparty.objects.create(inn=inn, name=result["name"])
+                created = True
+            elif counterparty.name != result["name"]:
+                counterparty.name = result["name"]
+                counterparty.save(update_fields=["name"])
             history_record = HistoryCheckCounterparty.objects.create(
                 counterparty=counterparty,
                 user=request.user,
@@ -479,7 +509,7 @@ def counterparty_check(request):
                 "checked_at": checked_at,
                 "checked_by": checked_by,
                 "cache_until": cache_until,
-                "history": counterparty.checks.select_related("user")[:6],
+                "history": counterparty.checks.successful().select_related("user")[:6],
                 "history_title": "Последние 6 проверок этой компании",
             }
         )

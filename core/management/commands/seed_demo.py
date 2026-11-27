@@ -21,7 +21,7 @@ from core.models import (
     Role,
     User,
 )
-from core.services.counterparty import build_demo_result
+from core.services.demo_data import build_demo_result
 
 ADMIN_LOGIN = "admin"
 ADMIN_PASSWORD = "Admin#2026"

@@ -33,6 +33,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-buildshop_secret}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+      CHECKO_API_KEY: ${CHECKO_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:

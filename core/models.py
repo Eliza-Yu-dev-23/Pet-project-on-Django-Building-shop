@@ -241,7 +241,15 @@ class Counterparty(models.Model):
         return f"{self.name} (ИНН {self.inn})"
 
 
+class HistoryCheckQuerySet(models.QuerySet):
+    def successful(self):
+        """Только успешные проверки (без записей об ошибках интеграции)."""
+        return self.filter(error_text="")
+
+
 class HistoryCheckCounterparty(models.Model):
+    objects = HistoryCheckQuerySet.as_manager()
+
     counterparty = models.ForeignKey(
         Counterparty,
         verbose_name="Контрагент",
@@ -255,7 +263,13 @@ class HistoryCheckCounterparty(models.Model):
         related_name="counterparty_checks",
     )
     date_time = models.DateTimeField("Дата и время", default=timezone.now)
-    result = models.TextField("Результат проверки (JSON)")
+    result = models.TextField("Результат проверки (JSON)", blank=True, default="")
+    error_text = models.TextField(
+        "Текст ошибки",
+        blank=True,
+        default="",
+        help_text="Технический текст ошибки интеграции. Пользователям не показывается.",
+    )
 
     class Meta:
         verbose_name = "История проверки контрагента"
